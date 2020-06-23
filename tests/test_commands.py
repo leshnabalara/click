@@ -71,6 +71,21 @@ def test_auto_shorthelp(runner):
     )
 
 
+def test_strips_backspace_char_from_help_output(runner):
+    @click.group()
+    def cli():
+        pass
+    @cli.command()
+    def command_with_backspace():
+        '''
+        \b 
+        sample command
+        '''
+    result = runner.invoke(cli,["--help"])
+
+    assert '\x08' not in result.output
+
+
 def test_no_args_is_help(runner):
     @click.command(no_args_is_help=True)
     def cli():
