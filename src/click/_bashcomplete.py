@@ -1,104 +1,12 @@
 import copy
-import os
-import re
 from collections import abc
 
 from .core import Argument
 from .core import MultiCommand
 from .core import Option
-from .parser import split_arg_string
 from .types import Choice
-from .utils import echo
 
 WORDBREAK = "="
-
-# Note, only BASH version 4.4 and later have the nosort option.
-COMPLETION_SCRIPT_BASH = """
-%(complete_func)s() {
-    local IFS=$'\n'
-    COMPREPLY=( $( env COMP_WORDS="${COMP_WORDS[*]}" \\
-                   COMP_CWORD=$COMP_CWORD \\
-                   %(autocomplete_var)s=complete $1 ) )
-    return 0
-}
-
-%(complete_func)s_setup() {
-    local COMPLETION_OPTIONS=""
-    local BASH_VERSION_ARR=(${BASH_VERSION//./ })
-    # Only BASH version 4.4 and later have the nosort option.
-    if [ ${BASH_VERSION_ARR[0]} -gt 4 ] || ([ ${BASH_VERSION_ARR[0]} -eq 4 ] \
-&& [ ${BASH_VERSION_ARR[1]} -ge 4 ]); then
-        COMPLETION_OPTIONS="-o nosort"
-    fi
-
-    complete $COMPLETION_OPTIONS -F %(complete_func)s %(script_names)s
-}
-
-%(complete_func)s_setup
-"""
-
-COMPLETION_SCRIPT_ZSH = """
-#compdef %(script_names)s
-
-%(complete_func)s() {
-    local -a completions
-    local -a completions_with_descriptions
-    local -a response
-    (( ! $+commands[%(script_names)s] )) && return 1
-
-    response=("${(@f)$( env COMP_WORDS=\"${words[*]}\" \\
-                        COMP_CWORD=$((CURRENT-1)) \\
-                        %(autocomplete_var)s=\"complete_zsh\" \\
-                        %(script_names)s )}")
-
-    for key descr in ${(kv)response}; do
-      if [[ "$descr" == "_" ]]; then
-          completions+=("$key")
-      else
-          completions_with_descriptions+=("$key":"$descr")
-      fi
-    done
-
-    if [ -n "$completions_with_descriptions" ]; then
-        _describe -V unsorted completions_with_descriptions -U
-    fi
-
-    if [ -n "$completions" ]; then
-        compadd -U -V unsorted -a completions
-    fi
-    compstate[insert]="automenu"
-}
-
-compdef %(complete_func)s %(script_names)s
-"""
-
-COMPLETION_SCRIPT_FISH = (
-    "complete --no-files --command %(script_names)s --arguments"
-    ' "(env %(autocomplete_var)s=complete_fish'
-    " COMP_WORDS=(commandline -cp) COMP_CWORD=(commandline -t)"
-    ' %(script_names)s)"'
-)
-
-_completion_scripts = {
-    "bash": COMPLETION_SCRIPT_BASH,
-    "zsh": COMPLETION_SCRIPT_ZSH,
-    "fish": COMPLETION_SCRIPT_FISH,
-}
-
-_invalid_ident_char_re = re.compile(r"[^a-zA-Z0-9_]")
-
-
-def get_completion_script(prog_name, complete_var, shell):
-    cf_name = _invalid_ident_char_re.sub("", prog_name.replace("-", "_"))
-    script = _completion_scripts.get(shell, COMPLETION_SCRIPT_BASH)
-    return (
-        script
-        % {
-            "complete_func": f"_{cf_name}_completion",
-            "script_names": prog_name,
-            "autocomplete_var": complete_var,
-        }
-    ).strip() + ";"
 
 
 def resolve_ctx(cli, prog_name, args):
@@ -316,56 +224,3 @@ def get_choices(cli, prog_name, args, incomplete):
     add_subcommand_completions(ctx, incomplete, completions)
     # Sort before returning so that proper ordering can be enforced in custom types.
     return sorted(completions)
-
-
-def do_complete(cli, prog_name, include_descriptions):
-    cwords = split_arg_string(os.environ["COMP_WORDS"])
-    cword = int(os.environ["COMP_CWORD"])
-    args = cwords[1:cword]
-    try:
-        incomplete = cwords[cword]
-    except IndexError:
-        incomplete = ""
-
-    for item in get_choices(cli, prog_name, args, incomplete):
-        echo(item[0])
-        if include_descriptions:
-            # ZSH has trouble dealing with empty array parameters when
-            # returned from commands, use '_' to indicate no description
-            # is present.
-            echo(item[1] if item[1] else "_")
-
-    return True
-
-
-def do_complete_fish(cli, prog_name):
-    cwords = split_arg_string(os.environ["COMP_WORDS"])
-    incomplete = os.environ["COMP_CWORD"]
-    args = cwords[1:]
-
-    for item in get_choices(cli, prog_name, args, incomplete):
-        if item[1]:
-            echo(f"{item[0]}\t{item[1]}")
-        else:
-            echo(item[0])
-
-    return True
-
-
-def bashcomplete(cli, prog_name, complete_var, complete_instr):
-    if "_" in complete_instr:
-        command, shell = complete_instr.split("_", 1)
-    else:
-        command = complete_instr
-        shell = "bash"
-
-    if command == "source":
-        echo(get_completion_script(prog_name, complete_var, shell))
-        return True
-    elif command == "complete":
-        if shell == "fish":
-            return do_complete_fish(cli, prog_name)
-        elif shell in {"bash", "zsh"}:
-            return do_complete(cli, prog_name, shell == "zsh")
-
-    return False
