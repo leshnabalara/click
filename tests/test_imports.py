@@ -46,6 +46,8 @@ ALLOWED_IMPORTS = {
     "fcntl",
     "datetime",
     "pipes",
+    "subprocess",
+    "copy",
 }
 
 if WIN:
