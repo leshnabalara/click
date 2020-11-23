@@ -380,10 +380,12 @@ class CliRunner:
         )
 
     @contextlib.contextmanager
-    def isolated_filesystem(self):
+    def isolated_filesystem(self, tempdir=None):
         """A context manager that creates a temporary folder and changes
         the current working directory to it for isolated filesystem tests.
         """
+        tempfile.tempdir = tempdir
+
         cwd = os.getcwd()
         t = tempfile.mkdtemp()
         os.chdir(t)
@@ -391,7 +393,8 @@ class CliRunner:
             yield t
         finally:
             os.chdir(cwd)
-            try:
-                shutil.rmtree(t)
-            except OSError:  # noqa: B014
-                pass
+            if tempdir is None:
+                try:
+                    shutil.rmtree(t)
+                except OSError:  # noqa: B014
+                    pass
