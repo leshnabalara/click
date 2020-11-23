@@ -86,6 +86,8 @@ For basic command line tools with file system operations, the
 :meth:`CliRunner.isolated_filesystem` method is useful for setting the
 current working directory to a new, empty folder.
 
+There is an option to specify a custom temporary director to inspect later.
+
 .. code-block:: python
    :caption: cat.py
 

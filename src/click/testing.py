@@ -383,6 +383,10 @@ class CliRunner:
     def isolated_filesystem(self, tempdir=None):
         """A context manager that creates a temporary folder and changes
         the current working directory to it for isolated filesystem tests.
+
+        :param tempdir: the path where the temporary directory should be created
+
+        .. versionchanged:: 7.1.2
         """
         tempfile.tempdir = tempdir
 
