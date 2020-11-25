@@ -1,5 +1,7 @@
 import os
+import shutil
 import sys
+import tempfile
 from io import BytesIO
 
 import pytest
@@ -319,3 +321,22 @@ def test_file_stdin_attrs(runner):
 
     result = runner.invoke(cli, ["-"])
     assert result.output == "<stdin>\nr"
+
+
+def test_isolated_runner(runner):
+    lingering_directory = None
+    with runner.isolated_filesystem() as directory:
+        lingering_directory = directory
+        assert os.path.exists(directory)
+
+    assert not os.path.exists(lingering_directory)
+
+
+def test_isolated_runner_custom_tempdir(runner):
+    lingering_directory = None
+    with runner.isolated_filesystem(tempdir=tempfile.gettempdir()) as directory:
+        lingering_directory = directory
+        assert os.path.exists(directory)
+
+    assert os.path.exists(lingering_directory)
+    shutil.rmtree(lingering_directory)

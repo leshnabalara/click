@@ -155,6 +155,9 @@ Unreleased
     iterators by setting ``update_min_steps``. :issue:`676`
 -   Respect ``case_sensitive=False`` when doing shell completion for
     ``Choice`` :issue:`1692`
+-   Allow custom temporary directories to be created with
+    ``CLIRunner.isolated_filesystem``. If ``tempdir`` is specified,
+    the temporary director is not automatically deleted. :issue:`395`
 
 
 Version 7.1.2
